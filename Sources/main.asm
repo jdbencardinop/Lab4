@@ -59,7 +59,7 @@ rti_cfg:                            ; RTI configuration
 ; ----------------------------------------
 ; Main code
 ; ----------------------------------------			     
-
+;
 main:
 _Startup:
             LDHX  #__SEG_END_SSTACK ; initialize the stack pointer
