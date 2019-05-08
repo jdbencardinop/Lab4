@@ -1979,8 +1979,8 @@ feed_watchdog: MACRO
 
 ; Constants section
 ROM_VAR: SECTION
-pisos:   dc.b  $01,$02,$03,$04
-
+pisos:   dc.b  1,2,3,4
+		; POS X 00  01  02  03  
 ; variable/data section
 MY_ZEROPAGE: SECTION  SHORT         ; Insert here your data definition
 actual:  ds.b  1
@@ -2001,8 +2001,10 @@ kbi_cfg:                            ; KBI configuration
             mov   #%00001010,KBISC  ; KBI enabled
                                     ; detect edge only
             mov   #%00000011,KBIPE  ; Pins 1 and 0 enabled for kbi
-            mov   #%00000011,KBIES  ; Rising edge/high level for 1 downto 0
-            
+            mov   #%00000000,KBIES  ; Falling edge/low level
+            						; Es necesario dejarlo en flanco de subida, debido a que
+            						; los puertos en A fueron configurados en pull-up (detecta)
+            						; flanco de bajada
             RTS
             
 rti_cfg:                            ; RTI configuration
@@ -2023,31 +2025,35 @@ _Startup:
             LDA   #$02
             STA   SOPT1             ; Disable watchdog
             
-            MOV   #$FF, PTBDD       ; Poner todos los pines de B como salida
+            MOV   #%11111111, PTBDD       ; Poner todos los pines de B como salida
                                     ; 3 para el 7447 (D siempre a tierra) (0,1,2),
                                     ; 1 para el buzzer (3) y
                                     ; 4 para los leds (4,5,6,7)
-            MOV   #$00, PTBD        ; Iniciar todos los pines en 0
-            
-            lda   #$FF
-            sta   PTAPE             ; Enable pull-up en todos los pines de A
-            
-            JSR   irq_cfg           ; ir a configuración de irq
-            JSR   kbi_cfg           ; ir a config kbi
-            JSR   rti_cfg           ; ir a config rti
+            MOV   #%10000100, PTBD  ; Inicia en piso 4 (led,display)
+            MOV   #%00000100, PTADD ; PTA2 es la unica salida (Buzzer)
+            MOV   #%00000000, PTAD  ; Solo pone en cero PTA2, los demas los ignora
+
+            lda   #%11111111		; carga 0xFF en el acumulador
+            sta   PTAPE             ; Enable pull-up en todos los pines de A (FF del acumulador)
             
 			CLI			            ; enable interrupts
 			
-			mov   #$00,actual       ; inicializar en el primer piso
-			CLRH                    ; limpiar H y X
+			mov   #%00000011,actual ; inicializar en el piso 4 (3+1)
+	;		CLRH                    ; limpiar H y X
 			CLRX                    ; para poder usarlos en el ascensor
+            JSR   irq_cfg           ; ir a configuración de irq
+            JSR   kbi_cfg           ; ir a config kbi
+            JSR   rti_cfg           ; ir a config rti			
 
 mainLoop:
-            ; Insert your code here
-            NOP
-            NOP
-            NOP
-            
+			;BRSET 7, SRTISC,RTI_ISR
+			;BRSET 3, IRQSC,IRQ_ISR
+			;BRSET 3, KBISC,KBI_ISR
+			nop
+			nop
+			nop
+			
+			       
             BRA    mainLoop
 
 ; ----------------------------------------
@@ -2065,32 +2071,61 @@ IRQ_ISR:
 
 ; Rutina de servicio de interrupción KBI
 KBI_ISR:
-            ldx   actual            
-            brclr 0,PTAD,bajar      ;preguntar qué botón fue presionado
-            brclr 0,PTAD,subir
+			CLRX
+			CLRH
             bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                                    ;para permitir alguna interrupción futura
+                       				;para permitir alguna interrupción futura
+            ldx   actual            
+            brclr 1,PTAD,bajar      ;preguntar qué botón fue presionado
+            brclr 0,PTAD,subir
             rti                     ;return from interrupt, retomar el punto desde donde
                                     ;se activo la interrupcion
 bajar:
             CBEQX #$00,vueltab
-            inc   X
-                       
-            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                                    ;para permitir alguna interrupción futura
+            decX
+            lda   PTBD
+            AND   #$F0 				; Deja intacto los bits de los LEDS, 
+            ADD	  pisos,X
+            STA   PTBD
+            STX	  actual
             rti                     ;return from interrupt, retomar el punto desde donde
                                     ;se activo la interrupcion
 vueltab:
-            
+			ldx   #$03
+			lda   PTBD
+            AND   #$F0
+            ORA	  pisos,X
+            STA   PTBD
             bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
                                     ;para permitir alguna interrupción futura
+            LDX   actual                      
             rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion         
+                                    ;se activo la interrupcion                           
 subir:      
-            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                                    ;para permitir alguna interrupción futura
+			CBEQX #$03,vueltaa
+            incx
+            lda   PTBD
+            AND   #$F0
+            ADD	  pisos,X
+            STA   PTBD
+            LDX actual
             rti                     ;return from interrupt, retomar el punto desde donde
                                     ;se activo la interrupcion
+                                
+vueltaa:
+            ldx   #$00
+                                    ;para permitir alguna interrupción futura
+			lda   PTBD
+            AND   #$F0
+            ORA	  pisos,X
+            STA   PTBD
+            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+                                    ;para permitir alguna interrupción futura
+            LDX actual                      
+            rti                     ;return from interrupt, retomar el punto desde donde
+                                    ;se activo la interrupcion     
+                                                                     
+
 
 ; Fin de interrupción por KBI
 
