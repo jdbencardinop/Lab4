@@ -1979,11 +1979,13 @@ feed_watchdog: MACRO
 
 ; Constants section
 ROM_VAR: SECTION
-pisos:   dc.b  1,2,3,4
+pisos:    dc.b  1,2,3,4
+actuales: dc.b  1,2,4,8
 		; POS X 00  01  02  03  
 ; variable/data section
 MY_ZEROPAGE: SECTION  SHORT         ; Insert here your data definition
-actual:  ds.b  1
+destino:  ds.b  1
+actual:   ds.b  1
 
 ; code section
 MyCode:     SECTION
@@ -2025,10 +2027,14 @@ _Startup:
             LDA   #$02
             STA   SOPT1             ; Disable watchdog
             
-            MOV   #%11111111, PTBDD       ; Poner todos los pines de B como salida
+            SEI
+            
+            MOV   #%11111111, PTBDD ; Poner todos los pines de B como salida
                                     ; 3 para el 7447 (D siempre a tierra) (0,1,2),
                                     ; 1 para el buzzer (3) y
                                     ; 4 para los leds (4,5,6,7)
+            MOV   #$F8,PTBD
+            JSR   retardo
             MOV   #%10000100, PTBD  ; Inicia en piso 4 (led,display)
             MOV   #%00000100, PTADD ; PTA2 es la unica salida (Buzzer)
             MOV   #%00000000, PTAD  ; Solo pone en cero PTA2, los demas los ignora
@@ -2038,109 +2044,150 @@ _Startup:
             
 			CLI			            ; enable interrupts
 			
-			mov   #%00000011,actual ; inicializar en el piso 4 (3+1)
-	;		CLRH                    ; limpiar H y X
-			CLRX                    ; para poder usarlos en el ascensor
+			mov   #%00000011,destino ; inicializar en el piso 4 (3+1)
+			mov   #%00000011,actual ; inicializar en el piso 4
+			
             JSR   irq_cfg           ; ir a configuración de irq
             JSR   kbi_cfg           ; ir a config kbi
-            JSR   rti_cfg           ; ir a config rti			
+            JSR   rti_cfg           ; ir a config rti
+            
+            CLRH                    ; limpiar H y X
+			CLRX                    ; para poder usarlos en el ascensor			
 
 mainLoop:
-			;BRSET 7, SRTISC,RTI_ISR
-			;BRSET 3, IRQSC,IRQ_ISR
-			;BRSET 3, KBISC,KBI_ISR
+			lda   SRTISC
+			and   #%10000000
+			BEQ   RTI_ISR2
+			BRSET 3, IRQSC,IRQ_ISR2
+			BRSET 3, KBISC,KBI_ISR2
 			nop
 			nop
 			nop
 			
 			       
             BRA    mainLoop
+            
 
+            
 ; ----------------------------------------
-; Interrupciones
+; Interrupciones Respaldo
 ; ----------------------------------------
 
-; Rutina de servicio de interrupción IRQ
-IRQ_ISR:
-            bset  2,IRQSC
-            LDA   PTBD
-            EOR   #$01
-            STA   PTBD
-            RTI
-; Fin de interrupción por IRQ
-
-; Rutina de servicio de interrupción KBI
-KBI_ISR:
-			CLRX
-			CLRH
-            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                       				;para permitir alguna interrupción futura
-            ldx   actual            
-            brclr 1,PTAD,bajar      ;preguntar qué botón fue presionado
-            brclr 0,PTAD,subir
-            rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion
-bajar:
-            CBEQX #$00,vueltab
-            decX
-            lda   PTBD
-            AND   #$F0 				; Deja intacto los bits de los LEDS, 
-            ADD	  pisos,X
-            STA   PTBD
-            STX	  actual
-            rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion
-vueltab:
-			ldx   #$03
-			lda   PTBD
-            AND   #$F0
-            ORA	  pisos,X
-            STA   PTBD
-            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                                    ;para permitir alguna interrupción futura
-            LDX   actual                      
-            rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion                           
-subir:      
-			CBEQX #$03,vueltaa
-            incx
-            lda   PTBD
-            AND   #$F0
-            ADD	  pisos,X
-            STA   PTBD
-            LDX actual
-            rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion
-                                
-vueltaa:
-            ldx   #$00
-                                    ;para permitir alguna interrupción futura
-			lda   PTBD
-            AND   #$F0
-            ORA	  pisos,X
-            STA   PTBD
-            bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                                    ;para permitir alguna interrupción futura
-            LDX actual                      
-            rti                     ;return from interrupt, retomar el punto desde donde
-                                    ;se activo la interrupcion     
-                                                                     
-
-
-; Fin de interrupción por KBI
 
 ; Rutina de servicio de interrupción RTI
-RTI_ISR:
+RTI_ISR2:
             lda   #%01000000        ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
             ora   SRTISC            ;para permitir la siguiente interrupción ya que es periódica
             sta   SRTISC
-            lda   #%00001000
-            eor   PTBD              ;alternar estado de pin
-            sta   PTBD
-            rti                     ;return from interrupt, retomar el punto desde donde
+            lda   #%11101111        ;inhabilitar las interrupciones la poner el bit de enable en 0
+            and   SRTISC            ; de esta manera no se vuelve a activar al buzzer
+            sta   SRTISC
+            lda   #%00000000
+            sta   PTAD              ;apagar el buzzer
+            CLI
+            JMP   mainLoop          ;return from interrupt, retomar el punto desde donde
                                     ;se activo la interrupcion	
-; Fin de interrupción por RTI	
-	
+; Fin de interrupción por RTI
+
+; Rutina de servicio de interrupción KBI
+KBI_ISR2:
+            CLRX
+			CLRH       
+			          
+            brclr 1,PTAD,bajar2      ;preguntar qué botón fue presionado
+            brclr 0,PTAD,subir2
+            
+            BRA   salida2
+salida2:
+			bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+                       				;para permitir alguna interrupción futura
+			CLI
+			BRA   mainLoop
+
+bajar2:
+            CBEQX #$00,vueltab2
+            dec   destino
+            BRA   movimiento2       ;return from interrupt, retomar el punto desde donde
+                                    ;se activo la interrupcion
+vueltab2:
+			lda   #$03
+			sta   destino
+            BRA   movimiento2
+            
+movimiento2:
+			ldx   destino
+			lda   PTBD
+            AND   #$F0 				; Deja intacto los bits de los LEDS, 
+            ORA	  pisos,X
+            STA   PTBD
+            BRA   salida2                    
+subir2:      
+			CBEQX #$03,vueltaa2
+            inc   destino
+            BRA   movimiento2
+                                
+vueltaa2:
+            lda   #$00
+			sta   destino
+            BRA   movimiento2
+; Fin de la rutina para KBI
+                                    
+; Rutina de servicio de interrupción IRQ
+IRQ_ISR2:           
+			CLRH
+			CLRX  
+			
+			LDA   destino
+            CMP   actual
+            BEQ   salir2  
+            
+compare2:
+            LDA   destino
+            CMP   actual
+            BEQ   igual2
+            BMI   decremento2
+            BRA   incremento2
+            
+igual2:
+			lda   #%00010000
+			ora   SRTISC            ;para habilitar la siguiente interrupción ya que es periódica
+            sta   SRTISC
+			mov   #$04,PTAD
+
+salir2:
+			bset  2,IRQSC
+			CLI
+			JMP   mainLoop
+			
+decremento2:
+			
+			CBEQX #$03,vdec2
+			inc   actual
+			bra   tran2
+			
+vdec2:
+			lda   #$00
+			sta   actual
+			bra   tran2
+			
+tran2:
+			ldx   actual
+			lda   PTBD
+            AND   #$0F
+            ORA	  actuales,X
+            STA   PTBD
+            JSR   retardo
+            BRA   compare2
+            
+incremento2:
+            CBEQX #$00,vinc2
+			inc   actual
+			bra   tran2
+vinc2:
+			lda   #$03
+			sta   actual
+			bra   tran2	   
+; Fin de interrupción por IRQ
 
 ; ----------------------------------------
 ; Subrutinas para acciones
@@ -2162,3 +2209,121 @@ rt2:
             pula              ;sacar lo del stack y ponerlo en el acumulador, dir inherente
             dbnza rt0         ;para salir de este condicional se tuvieron que hacer aproximadamente 4*256*256*17
             rts               ;return from subroutine, volver a desde donde se llamo la subrutina
+
+
+; ----------------------------------------
+; Interrupciones
+; ----------------------------------------
+
+; Rutina de servicio de interrupción IRQ
+IRQ_ISR:            
+			CLRH
+			CLRX  
+			
+			LDA   destino
+            CMP   actual
+            BEQ   salir  
+            
+compare:
+            LDA   destino
+            CMP   actual
+            BEQ   igual
+            BMI   decremento
+            BRA   incremento
+            
+igual:
+			lda   #%00010000
+			ora   SRTISC            ;para habilitar la siguiente interrupción ya que es periódica
+            sta   SRTISC
+			mov   #$04,PTAD
+
+salir:
+			bset  2,IRQSC
+			RTI
+			
+decremento:
+			
+			CBEQX #$03,vdec
+			inc   actual
+			bra   tran
+			
+vdec:
+			lda   #$00
+			sta   actual
+			bra   tran
+			
+tran:
+			ldx   actual
+			lda   PTBD
+            AND   #$0F
+            ORA	  actuales,X
+            STA   PTBD
+            JSR   retardo
+            BRA   compare
+            
+incremento:
+            CBEQX #$00,vinc
+			inc   actual
+			bra   tran
+vinc:
+			lda   #$03
+			sta   actual
+			bra   tran	   
+; Fin de interrupción por IRQ
+
+; Rutina de servicio de interrupción KBI
+KBI_ISR:
+            CLRX
+			CLRH       
+			          
+            brclr 1,PTAD,bajar      ;preguntar qué botón fue presionado
+            brclr 0,PTAD,subir
+            
+            BRA   salida
+salida:
+			bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+                       				;para permitir alguna interrupción futura
+			rti                     ;return from interrupt, retomar el punto desde donde
+                                    ;se activo la interrupcion
+bajar:
+            CBEQX #$00,vueltab
+            dec   destino
+            BRA   movimiento       ;return from interrupt, retomar el punto desde donde
+                                    ;se activo la interrupcion
+vueltab:
+			lda   #$03
+			sta   destino
+            BRA   movimiento
+            
+movimiento:
+			ldx   destino
+			lda   PTBD
+            AND   #$F0 				; Deja intacto los bits de los LEDS, 
+            ORA	  pisos,X
+            STA   PTBD
+            BRA   salida                    
+subir:      
+			CBEQX #$03,vueltaa
+            inc   destino
+            BRA   movimiento
+                                
+vueltaa:
+            lda   #$00
+			sta   destino
+            BRA   movimiento
+; Fin de interrupción por KBI
+
+; Rutina de servicio de interrupción RTI
+RTI_ISR:
+            lda   #%01000000        ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+            ora   SRTISC            ;para permitir la siguiente interrupción ya que es periódica
+            sta   SRTISC
+            lda   #%11101111        ;inhabilitar las interrupciones la poner el bit de enable en 0
+            and   SRTISC            ; de esta manera no se vuelve a activar al buzzer
+            sta   SRTISC
+            lda   #%00000000
+            sta   PTAD              ;apagar el buzzer
+            rti                     ;return from interrupt, retomar el punto desde donde
+                                    ;se activo la interrupcion	
+; Fin de interrupción por RTI	
+
