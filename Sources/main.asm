@@ -107,7 +107,7 @@ mainLoop:
 			BRSET 3, KBISC,KBI_ISR2
 			nop
 			nop
-			nop
+			;nop
 			
 			       
             BRA    mainLoop
