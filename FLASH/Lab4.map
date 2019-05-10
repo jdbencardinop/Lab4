@@ -1,4 +1,4 @@
-
+*** EVALUATION ***
 PROGRAM "Lab4.abs"
 
 *********************************************************************************************
@@ -23,8 +23,9 @@ Entry point: 0xE014 (_Startup)
 SECTION-ALLOCATION SECTION
 Section Name                    Size  Type     From       To       Segment
 ---------------------------------------------------------------------------------------------
-.init                            125     R     0xE000     0xE07C   ROM
-MY_ZEROPAGE                        1   R/W       0x60       0x60   Z_RAM
+.init                            396     R     0xE000     0xE18B   ROM
+.rodata                            8     R     0xE18C     0xE193   ROM
+MY_ZEROPAGE                        2   R/W       0x60       0x61   Z_RAM
 .stack                            64   R/W      0x100      0x13F   RAM
 .vectSeg0_vect                     2     R     0xFFD0     0xFFD1   .vectSeg0
 .vectSeg1_vect                     2     R     0xFFDA     0xFFDB   .vectSeg1
@@ -32,16 +33,16 @@ MY_ZEROPAGE                        1   R/W       0x60       0x60   Z_RAM
 .vectSeg3_vect                     2     R     0xFFFE     0xFFFF   .vectSeg3
 
 Summary of section sizes per section type:
-READ_ONLY (R):          85 (dec:      133)
-READ_WRITE (R/W):       41 (dec:       65)
+READ_ONLY (R):         19C (dec:      412)
+READ_WRITE (R/W):       42 (dec:       66)
 
 *********************************************************************************************
 VECTOR-ALLOCATION SECTION
     Address     InitValue   InitFunction
 ---------------------------------------------------------------------------------------------
-     0xFFD0        0xE05D   RTI_ISR
-     0xFFDA        0xE045   KBI_ISR
-     0xFFFA        0xE03C   IRQ_ISR
+     0xFFD0        0xE056   RTI_ISR2
+     0xFFDA        0xE06E   KBI_ISR2
+     0xFFFA        0xE0AD   IRQ_ISR2
      0xFFFE        0xE014   _Startup
 
 *********************************************************************************************
@@ -53,20 +54,47 @@ MODULE:                 -- main_asm.obj --
      irq_cfg                                   E000       4       4       1   .init       
      kbi_cfg                                   E004       A      10       1   .init       
      rti_cfg                                   E00E       6       6       1   .init       
-     _Startup                                  E014      23      35       0   .init       
+     _Startup                                  E014      30      48       0   .init       
      main                                      E014       0       0       0   .init       
-     mainLoop                                  E037       5       5       0   .init       
-     IRQ_ISR                                   E03C       9       9       0   .init       
-     KBI_ISR                                   E045       B      11       0   .init       
-     bajar                                     E050       7       7       0   .init       
-     vueltab                                   E057       3       3       0   .init       
-     subir                                     E05A       3       3       0   .init       
-     RTI_ISR                                   E05D      11      17       0   .init       
-     rt0                                       E06E       3       3       0   .init       
-     rt1                                       E071       3       3       0   .init       
-     rt2                                       E074       9       9       0   .init       
+     mainLoop                                  E044      12      18       2   .init       
+     RTI_ISR2                                  E056      18      24       0   .init       
+     KBI_ISR2                                  E06E       E      14       0   .init       
+     salida2                                   E07C       2       2       0   .init       
+     bajar2                                    E07E       B      11       0   .init       
+     subir2                                    E089       B      11       0   .init       
+     vueltab2                                  E094       6       6       0   .init       
+     movimiento2                               E09A       D      13       0   .init       
+     vueltaa2                                  E0A7       6       6       0   .init       
+     IRQ_ISR2                                  E0AD       A      10       0   .init       
+     compare2                                  E0B7       A      10       0   .init       
+     igual2                                    E0C1       B      11       0   .init       
+     salir2                                    E0CC       4       4       0   .init       
+     decremento2                               E0D0       4       4       0   .init       
+     tran2                                     E0D4      10      16       0   .init       
+     incremento2                               E0E4       4       4       0   .init       
+     retardo                                   E0E8       2       2       2   .init       
+     rt0                                       E0EA       3       3       0   .init       
+     rt1                                       E0ED       3       3       0   .init       
+     rt2                                       E0F0      11      17       0   .init       
+     compare                                   E101       A      10       0   .init       
+     igual                                     E10B       B      11       0   .init       
+     salir                                     E116       3       3       0   .init       
+     decremento                                E119       7       7       0   .init       
+     vdec                                      E120       6       6       0   .init       
+     tran                                      E126      10      16       0   .init       
+     incremento                                E136       7       7       0   .init       
+     vinc                                      E13D      10      16       0   .init       
+     salida                                    E14D       3       3       0   .init       
+     bajar                                     E150       7       7       0   .init       
+     vueltab                                   E157       6       6       0   .init       
+     movimiento                                E15D       D      13       0   .init       
+     subir                                     E16A       7       7       0   .init       
+     vueltaa                                   E171      1B      27       0   .init       
 - VARIABLES:
-     actual                                      60       1       1       2   MY_ZEROPAGE 
+     pisos                                     E18C       4       4       2   .rodata     
+     actuales                                  E190       4       4       2   .rodata     
+     destino                                     60       1       1      16   MY_ZEROPAGE 
+     actual                                      61       1       1      13   MY_ZEROPAGE 
 - LABELS:
      __SEG_END_SSTACK                           140       0       0       1               
 
@@ -74,45 +102,74 @@ MODULE:                 -- main_asm.obj --
 MODULE STATISTIC
   Name                                      Data   Code  Const
 ---------------------------------------------------------------------------------------------
-  main_asm.obj                                 1    125      0
+  main_asm.obj                                 2    396      8
   other                                       64      8      0
 
 *********************************************************************************************
 SECTION USE IN OBJECT-ALLOCATION SECTION
 ---------------------------------------------------------------------------------------------
 SECTION: ".init"
-  irq_cfg kbi_cfg rti_cfg main _Startup mainLoop IRQ_ISR KBI_ISR bajar vueltab 
-  subir RTI_ISR rt0 rt1 rt2 
+  irq_cfg kbi_cfg rti_cfg main _Startup mainLoop RTI_ISR2 KBI_ISR2 salida2 
+  bajar2 subir2 vueltab2 movimiento2 vueltaa2 IRQ_ISR2 compare2 igual2 salir2 
+  decremento2 tran2 incremento2 retardo rt0 rt1 rt2 compare igual salir 
+  decremento vdec tran incremento vinc salida bajar vueltab movimiento subir 
+  vueltaa 
+SECTION: ".rodata"
+  pisos actuales 
 SECTION: "MY_ZEROPAGE"
-  actual 
+  destino actual 
 
 *********************************************************************************************
 OBJECT LIST SORTED BY ADDRESS
      Name                                      Addr   hSize   dSize     Ref    Section   RLIB
 ---------------------------------------------------------------------------------------------
-     actual                                      60       1       1       2   MY_ZEROPAGE 
+     destino                                     60       1       1      16   MY_ZEROPAGE 
+     actual                                      61       1       1      13   MY_ZEROPAGE 
      irq_cfg                                   E000       4       4       1   .init       
      kbi_cfg                                   E004       A      10       1   .init       
      rti_cfg                                   E00E       6       6       1   .init       
      main                                      E014       0       0       0   .init       
-     _Startup                                  E014      23      35       0   .init       
-     mainLoop                                  E037       5       5       0   .init       
-     IRQ_ISR                                   E03C       9       9       0   .init       
-     KBI_ISR                                   E045       B      11       0   .init       
-     bajar                                     E050       7       7       0   .init       
-     vueltab                                   E057       3       3       0   .init       
-     subir                                     E05A       3       3       0   .init       
-     RTI_ISR                                   E05D      11      17       0   .init       
-     rt0                                       E06E       3       3       0   .init       
-     rt1                                       E071       3       3       0   .init       
-     rt2                                       E074       9       9       0   .init       
+     _Startup                                  E014      30      48       0   .init       
+     mainLoop                                  E044      12      18       2   .init       
+     RTI_ISR2                                  E056      18      24       0   .init       
+     KBI_ISR2                                  E06E       E      14       0   .init       
+     salida2                                   E07C       2       2       0   .init       
+     bajar2                                    E07E       B      11       0   .init       
+     subir2                                    E089       B      11       0   .init       
+     vueltab2                                  E094       6       6       0   .init       
+     movimiento2                               E09A       D      13       0   .init       
+     vueltaa2                                  E0A7       6       6       0   .init       
+     IRQ_ISR2                                  E0AD       A      10       0   .init       
+     compare2                                  E0B7       A      10       0   .init       
+     igual2                                    E0C1       B      11       0   .init       
+     salir2                                    E0CC       4       4       0   .init       
+     decremento2                               E0D0       4       4       0   .init       
+     tran2                                     E0D4      10      16       0   .init       
+     incremento2                               E0E4       4       4       0   .init       
+     retardo                                   E0E8       2       2       2   .init       
+     rt0                                       E0EA       3       3       0   .init       
+     rt1                                       E0ED       3       3       0   .init       
+     rt2                                       E0F0      11      17       0   .init       
+     compare                                   E101       A      10       0   .init       
+     igual                                     E10B       B      11       0   .init       
+     salir                                     E116       3       3       0   .init       
+     decremento                                E119       7       7       0   .init       
+     vdec                                      E120       6       6       0   .init       
+     tran                                      E126      10      16       0   .init       
+     incremento                                E136       7       7       0   .init       
+     vinc                                      E13D      10      16       0   .init       
+     salida                                    E14D       3       3       0   .init       
+     bajar                                     E150       7       7       0   .init       
+     vueltab                                   E157       6       6       0   .init       
+     movimiento                                E15D       D      13       0   .init       
+     subir                                     E16A       7       7       0   .init       
+     vueltaa                                   E171      1B      27       0   .init       
+     pisos                                     E18C       4       4       2   .rodata     
+     actuales                                  E190       4       4       2   .rodata     
 
 *********************************************************************************************
 UNUSED-OBJECTS SECTION
 ---------------------------------------------------------------------------------------------
-NOT USED VARIABLES
-main_asm.obj:
-  pisos 
 
 *********************************************************************************************
 COPYDOWN SECTION
@@ -121,8 +178,33 @@ COPYDOWN SECTION
 *********************************************************************************************
 OBJECT-DEPENDENCIES SECTION
 ---------------------------------------------------------------------------------------------
-_Startup                  USES __SEG_END_SSTACK irq_cfg kbi_cfg rti_cfg actual 
-KBI_ISR                   USES actual 
+_Startup                  USES __SEG_END_SSTACK destino actual irq_cfg kbi_cfg 
+                                rti_cfg 
+RTI_ISR2                  USES mainLoop 
+KBI_ISR2                  USES destino 
+bajar2                    USES destino 
+subir2                    USES destino 
+vueltab2                  USES destino 
+movimiento2               USES destino pisos 
+vueltaa2                  USES destino 
+IRQ_ISR2                  USES destino actual 
+compare2                  USES destino actual 
+salir2                    USES mainLoop 
+decremento2               USES actual 
+tran2                     USES actual actuales retardo 
+incremento2               USES actual 
+rt2                       USES destino actual 
+compare                   USES destino actual 
+decremento                USES actual 
+vdec                      USES actual 
+tran                      USES actual actuales retardo 
+incremento                USES actual 
+vinc                      USES actual 
+bajar                     USES destino 
+vueltab                   USES destino 
+movimiento                USES destino pisos 
+subir                     USES destino 
+vueltaa                   USES destino 
 
 *********************************************************************************************
 DEPENDENCY TREE
@@ -139,8 +221,14 @@ DEPENDENCY TREE
     |    
     +- rti_cfg             
          
- KBI_ISR             
+ IRQ_ISR2            
    
+ KBI_ISR2            
+   
+ RTI_ISR2            
+ | 
+ +- mainLoop            
+      
 *********************************************************************************************
 STATISTIC SECTION
 ---------------------------------------------------------------------------------------------
@@ -148,5 +236,5 @@ STATISTIC SECTION
 ExeFile:
 --------
 Number of blocks to be downloaded: 5
-Total size of all blocks to be downloaded: 133
+Total size of all blocks to be downloaded: 412
 
