@@ -30,6 +30,6 @@ END
 STACKSIZE 0x40
 
 VECTOR 0  _Startup /* Reset vector: this is the default entry point for an application. */
-VECTOR 2  IRQ_ISR
-VECTOR 18 KBI_ISR
-VECTOR 23 RTI_ISR
+VECTOR 2  IRQ_ISR2
+VECTOR 18 KBI_ISR2
+VECTOR 23 RTI_ISR2
