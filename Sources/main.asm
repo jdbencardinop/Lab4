@@ -14,7 +14,7 @@
             
 
 ; export symbols
-            XDEF _Startup, main, IRQ_ISR, KBI_ISR, RTI_ISR
+            XDEF _Startup, main, IRQ_ISR2, KBI_ISR2, RTI_ISR2
             ; we export both '_Startup' and 'main' as symbols. Either can
             ; be referenced in the linker .prm file or from C/C++ later on
             
@@ -25,7 +25,7 @@
 ; Constants section
 ROM_VAR: SECTION
 pisos:    dc.b  1,2,3,4
-actuales: dc.b  1,2,4,8
+actuales: dc.b  $10,$20,$40,$80
 		; POS X 00  01  02  03  
 ; variable/data section
 MY_ZEROPAGE: SECTION  SHORT         ; Insert here your data definition
@@ -68,10 +68,8 @@ main:
 _Startup:
             LDHX  #__SEG_END_SSTACK ; initialize the stack pointer
             TXS
-            
             LDA   #$02
-            STA   SOPT1             ; Disable watchdog
-            
+            STA   SOPT1             ; Disable watchdog            
             SEI
             
             MOV   #%11111111, PTBDD ; Poner todos los pines de B como salida
@@ -79,7 +77,7 @@ _Startup:
                                     ; 1 para el buzzer (3) y
                                     ; 4 para los leds (4,5,6,7)
             MOV   #$F8,PTBD
-            JSR   retardo
+            ;JSR   retardo
             MOV   #%10000100, PTBD  ; Inicia en piso 4 (led,display)
             MOV   #%00000100, PTADD ; PTA2 es la unica salida (Buzzer)
             MOV   #%00000000, PTAD  ; Solo pone en cero PTA2, los demas los ignora
@@ -107,7 +105,7 @@ mainLoop:
 			BRSET 3, KBISC,KBI_ISR2
 			nop
 			nop
-			;nop
+			nop
 			
 			       
             BRA    mainLoop
@@ -136,24 +134,33 @@ RTI_ISR2:
 
 ; Rutina de servicio de interrupción KBI
 KBI_ISR2:
+			bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+                       				;para permitir alguna interrupción futura
+			lda destino
             CLRX
 			CLRH       
-			          
             brclr 1,PTAD,bajar2      ;preguntar qué botón fue presionado
             brclr 0,PTAD,subir2
             
             BRA   salida2
 salida2:
-			bset  2,KBISC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
-                       				;para permitir alguna interrupción futura
+
 			CLI
-			BRA   mainLoop
+			RTI
 
 bajar2:
-            CBEQX #$00,vueltab2
+			LDA	  PTBD
+			AND   #$0F
+            CBEQA #$01,vueltab2
             dec   destino
             BRA   movimiento2       ;return from interrupt, retomar el punto desde donde
                                     ;se activo la interrupcion
+subir2:     
+			LDA	  PTBD
+			AND   #$0F 
+			CBEQA #$04,vueltaa2
+            inc   destino
+            BRA   movimiento2                                    
 vueltab2:
 			lda   #$03
 			sta   destino
@@ -166,10 +173,6 @@ movimiento2:
             ORA	  pisos,X
             STA   PTBD
             BRA   salida2                    
-subir2:      
-			CBEQX #$03,vueltaa2
-            inc   destino
-            BRA   movimiento2
                                 
 vueltaa2:
             lda   #$00
@@ -178,13 +181,15 @@ vueltaa2:
 ; Fin de la rutina para KBI
                                     
 ; Rutina de servicio de interrupción IRQ
-IRQ_ISR2:           
+IRQ_ISR2:
+            bset  2,IRQSC           ;limpiar bandera al poner en 1 el bit, acknowledge interrupcion
+                                    ;para permitir alguna interrupción futura           
 			CLRH
 			CLRX  
 			
 			LDA   destino
             CMP   actual
-            BEQ   salir2  
+            BEQ   salir2  		;Branch si destino e igual son iguales
             
 compare2:
             LDA   destino
@@ -200,23 +205,23 @@ igual2:
 			mov   #$04,PTAD
 
 salir2:
-			bset  2,IRQSC
+			;bset  2,IRQSC
 			CLI
 			JMP   mainLoop
 			
 decremento2:
 			
-			CBEQX #$03,vdec2
-			inc   actual
+			;CBEQX #$03,vdec2
+			dec   actual
 			bra   tran2
 			
-vdec2:
-			lda   #$00
-			sta   actual
-			bra   tran2
+;vdec2:
+;			lda   #$00
+;			sta   actual
+;			bra   tran2
 			
 tran2:
-			ldx   actual
+			ldx   actual		;Carga bit actual modificado
 			lda   PTBD
             AND   #$0F
             ORA	  actuales,X
@@ -225,13 +230,13 @@ tran2:
             BRA   compare2
             
 incremento2:
-            CBEQX #$00,vinc2
+            ;CBEQX #$00,vinc2	;
 			inc   actual
 			bra   tran2
-vinc2:
-			lda   #$03
-			sta   actual
-			bra   tran2	   
+;vinc2:
+;			lda   #$03
+;			sta   actual
+;			bra   tran2	   
 ; Fin de interrupción por IRQ
 
 ; ----------------------------------------
